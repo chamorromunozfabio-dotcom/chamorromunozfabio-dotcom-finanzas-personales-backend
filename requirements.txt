@@ -5,4 +5,4 @@ psycopg2-binary==2.9.9
 pandas==2.2.1
 scikit-learn==1.4.1.post1
 pydantic==2.6.4
-cython>=3.0.0
+python-dotenv==1.0.1
