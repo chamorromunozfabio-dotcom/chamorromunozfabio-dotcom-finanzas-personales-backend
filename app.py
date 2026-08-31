@@ -5,20 +5,62 @@ from sqlalchemy import func
 from database import engine, get_db
 import modelos
 import analitica
+import hashlib
 
-# Crear las tablas en la base de datos si no existen
-modelos.Base.metadata.create_all(bind=engine)
-
+# 1. PRIMERO SE CREA LA INSTANCIA DE FASTAPI
 app = FastAPI(title="API Finanzas Personales")
 
-# Configurar CORS (Crucial para que Vercel pueda hablar con Render)
+# 2. SE CONFIGURA EL CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # En producción cambiar por la URL de Vercel
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 3. CREAR LAS TABLAS EN LA BASE DE DATOS SI NO EXISTEN
+modelos.Base.metadata.create_all(bind=engine)
+
+
+# --- RUTAS DE AUTENTICACIÓN ---
+
+@app.post("/api/registro")
+def registrar_usuario(user: modelos.UsuarioRegister, db: Session = Depends(get_db)):
+    # Verificar si el email ya existe
+    existente = db.query(modelos.Usuario).filter(modelos.Usuario.email == user.email).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    
+    # Cifrar contraseña de forma segura con SHA-256 nativo
+    pass_hash = hashlib.sha256(user.password.encode()).hexdigest()
+    
+    nuevo_usuario = modelos.Usuario(
+        nombre=user.nombre,
+        email=user.email,
+        password_hash=pass_hash
+    )
+    db.add(nuevo_usuario)
+    db.commit()
+    db.refresh(nuevo_usuario)
+    return {"mensaje": "Usuario registrado exitosamente", "id_usuario": nuevo_usuario.id}
+
+@app.post("/api/login")
+def login_usuario(user: modelos.UsuarioLogin, db: Session = Depends(get_db)):
+    pass_hash = hashlib.sha256(user.password.encode()).hexdigest()
+    
+    db_user = db.query(modelos.Usuario).filter(
+        modelos.Usuario.email == user.email,
+        modelos.Usuario.password_hash == pass_hash
+    ).first()
+    
+    if not db_user:
+        raise HTTPException(status_code=401, detail="Credenciales incorrectas")
+        
+    return {"mensaje": "Login exitoso", "id_usuario": db_user.id, "nombre": db_user.nombre}
+
+
+# --- RUTAS DE MOVIMIENTOS Y ANALÍTICA ---
 
 @app.post("/api/movimientos")
 def crear_movimiento(mov: modelos.MovimientoCreate, db: Session = Depends(get_db)):
@@ -72,18 +114,15 @@ def obtener_anomalias(id_usuario: int):
     anomalias = analitica.detectar_anomalias(df)
     return {"id_usuario": id_usuario, "anomalias_detectadas": anomalias}
 
-# Agregar esto al final de app.py
-
 @app.delete("/api/movimientos/{id_movimiento}")
 def eliminar_movimiento(id_movimiento: int, db: Session = Depends(get_db)):
-    # Buscar el movimiento en la base de datos
     movimiento = db.query(modelos.Movimiento).filter(modelos.Movimiento.id == id_movimiento).first()
     
     if not movimiento:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
         
-    db.delete(movimiento) # Eliminarlo
-    db.commit() # Guardar cambios
+    db.delete(movimiento)
+    db.commit()
     return {"mensaje": "Movimiento eliminado exitosamente"}
 
 @app.put("/api/movimientos/{id_movimiento}")
@@ -93,7 +132,6 @@ def editar_movimiento(id_movimiento: int, mov_actualizado: modelos.MovimientoUpd
     if not movimiento:
         raise HTTPException(status_code=404, detail="Movimiento no encontrado")
     
-    # Actualizar solo los campos que el frontend nos haya enviado
     datos_nuevos = mov_actualizado.dict(exclude_unset=True)
     for clave, valor in datos_nuevos.items():
         setattr(movimiento, clave, valor)
@@ -104,7 +142,6 @@ def editar_movimiento(id_movimiento: int, mov_actualizado: modelos.MovimientoUpd
 
 @app.get("/api/analitica/tendencia")
 def obtener_tendencia_api(id_usuario: int):
-    # Usamos nuestra capa analítica para extraer y agrupar
     df = analitica.cargar_datos(engine, id_usuario)
     tendencia = analitica.obtener_tendencia(df)
     return tendencia

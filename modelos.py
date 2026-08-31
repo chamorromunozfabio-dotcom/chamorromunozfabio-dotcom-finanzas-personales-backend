@@ -43,3 +43,13 @@ class MovimientoUpdate(BaseModel):
     monto: Optional[float] = None
     fecha: Optional[date] = None
     descripcion: Optional[str] = None
+    
+    # Agregar al final de modelos.py
+class UsuarioRegister(BaseModel):
+    nombre: str
+    email: str
+    password: str
+
+class UsuarioLogin(BaseModel):
+    email: str
+    password: str
