@@ -59,17 +59,35 @@ def detectar_anomalias(df, umbral_z=2):
 
     # Calcular media y desviación estándar por categoría
     stats = gastos.groupby('id_categoria')['monto'].agg(['mean', 'std']).reset_index()
-    # Rellenar NaN en std (cuando solo hay un gasto en esa categoría) con 1 para evitar divisiones por cero
-    stats['std'] = stats['std'].fillna(1).replace(0, 1)
+    stats['std'] = stats['std'].fillna(0)
     
     gastos = gastos.merge(stats, on='id_categoria')
-    gastos['z_score'] = (gastos['monto'] - gastos['mean']) / gastos['std']
     
-    # Filtrar anomalías (mayor al umbral)
-    anomalias = gastos[gastos['z_score'].abs() > umbral_z]
-    
-    # Convertir a diccionario para enviar como JSON
-    return anomalias[['fecha', 'monto', 'id_categoria', 'z_score']].to_dict(orient='records')
+    anomalias_lista = []
+    for _, row in gastos.iterrows():
+        media = row['mean']
+        monto = row['monto']
+        std = row['std']
+        
+        # 1. Cálculo por Z-score tradicional
+        es_anomalia_z = False
+        if std > 0:
+            z_score = abs((monto - media) / std)
+            if z_score > umbral_z:
+                es_anomalia_z = True
+                
+        # 2. Regla de respaldo infalible: Si el gasto supera el 250% del promedio de su categoría
+        es_anomalia_proporcion = monto > (media * 2.5) and media > 0
+
+        if es_anomalia_z or es_anomalia_proporcion:
+            anomalias_lista.append({
+                "fecha": row['fecha'].strftime('%Y-%m-%d'),
+                "monto": float(monto),
+                "id_categoria": int(row['id_categoria']),
+                "z_score": float((monto - media) / std) if std > 0 else 5.0
+            })
+            
+    return anomalias_lista
 
 # Agregar esto al final de analitica.py
 def obtener_tendencia(df):
