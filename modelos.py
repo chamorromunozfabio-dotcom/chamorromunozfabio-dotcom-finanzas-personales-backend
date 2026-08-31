@@ -10,6 +10,7 @@ class Usuario(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=True)  # <-- Añadido para el sistema de login seguro
 
 class Categoria(Base):
     __tablename__ = "categorias"
@@ -36,7 +37,6 @@ class MovimientoCreate(BaseModel):
     fecha: date
     descripcion: Optional[str] = None
     
-# Agregar esto al final de modelos.py
 class MovimientoUpdate(BaseModel):
     id_categoria: Optional[int] = None
     tipo: Optional[str] = None
@@ -44,7 +44,6 @@ class MovimientoUpdate(BaseModel):
     fecha: Optional[date] = None
     descripcion: Optional[str] = None
     
-    # Agregar al final de modelos.py
 class UsuarioRegister(BaseModel):
     nombre: str
     email: str
