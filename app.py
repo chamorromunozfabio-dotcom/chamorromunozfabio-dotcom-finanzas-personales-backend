@@ -11,9 +11,14 @@ import hashlib
 app = FastAPI(title="API Finanzas Personales")
 
 # 2. SE CONFIGURA EL CORS
+# Configurar CORS permitiendo tu Vercel explícitamente
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://finanzas-personales-frontend-fah2tms58-fcm6.vercel.app",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
