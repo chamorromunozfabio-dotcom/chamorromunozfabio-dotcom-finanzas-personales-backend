@@ -10,18 +10,13 @@ import hashlib
 # 1. PRIMERO SE CREA LA INSTANCIA DE FASTAPI
 app = FastAPI(title="API Finanzas Personales")
 
-# 2. SE CONFIGURA EL CORS
-# Configurar CORS permitiendo tu Vercel explícitamente
+# 2. SE CONFIGURA EL CORS ABIERTO PARA VERCEL
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://finanzas-personales-frontend-fah2tms58-fcm6.vercel.app",
-        "http://127.0.0.1:5500",
-        "http://localhost:5500"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Permite cualquier origen de Vercel o desarrollo local
+    allow_credentials=False,  # Requerido como False cuando allow_origins es ["*"]
+    allow_methods=["*"],  # Permite todos los métodos (GET, POST, PUT, DELETE, OPTIONS)
+    allow_headers=["*"],  # Permite todos los headers
 )
 
 # 3. CREAR LAS TABLAS EN LA BASE DE DATOS SI NO EXISTEN
@@ -32,12 +27,10 @@ modelos.Base.metadata.create_all(bind=engine)
 
 @app.post("/api/registro")
 def registrar_usuario(user: modelos.UsuarioRegister, db: Session = Depends(get_db)):
-    # Verificar si el email ya existe
     existente = db.query(modelos.Usuario).filter(modelos.Usuario.email == user.email).first()
     if existente:
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
     
-    # Cifrar contraseña de forma segura con SHA-256 nativo
     pass_hash = hashlib.sha256(user.password.encode()).hexdigest()
     
     nuevo_usuario = modelos.Usuario(
